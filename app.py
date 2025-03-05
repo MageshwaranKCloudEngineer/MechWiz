@@ -158,4 +158,4 @@ def upload_warranty_doc():
     return jsonify({"status": "Uploaded", "file_url": f"https://{S3_BUCKET}.s3.amazonaws.com/{file_name}"})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)
