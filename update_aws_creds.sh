@@ -4,8 +4,6 @@ mkdir -p ~/.aws
 # Fetch new temporary credentials for 4 hours (14400 seconds)
 CREDS_JSON=$(aws sts get-session-token --duration-seconds 14400)
 
-echo "$(CREDS_JSON)"
-
 # Parse the credentials (ensure jq is installed: sudo apt-get install jq)
 ACCESS_KEY=$(echo "$CREDS_JSON" | jq -r '.Credentials.AccessKeyId')
 SECRET_KEY=$(echo "$CREDS_JSON" | jq -r '.Credentials.SecretAccessKey')
