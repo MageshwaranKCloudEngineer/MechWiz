@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    // Schedule the pipeline to run every 3 hours
+    triggers {
+        cron('0 */3 * * *')
+    }
+
     environment {
         GIT_URL                = 'https://github.com/MageshwaranKCloudEngineer/Smart_warranty_project'
         GIT_CREDENTIALS_ID     = 'github-credentials'
@@ -52,8 +57,12 @@ pipeline {
         stage('Update AWS Credentials') {
             steps {
                 script {
+                    echo "Making update_aws_creds.sh executable..."
+                    sh 'chmod +x update_aws_creds.sh'
+                    
                     echo "Running update_aws_creds.sh to refresh AWS credentials..."
                     sh './update_aws_creds.sh'
+                    
                     // Optionally, display the updated credentials for verification
                     sh 'cat ~/.aws/credentials'
                 }
