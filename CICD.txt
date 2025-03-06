@@ -8,6 +8,7 @@ pipeline {
         DOCKER_IMAGE           = 'magesh506/smart_warrenty_calculator'
         IMAGE_TAG              = 'latest'
         BRANCH_NAME            = 'master'
+        AWS_REGION             = 'us-east-1'
     }
 
     stages {
@@ -47,6 +48,17 @@ pipeline {
                 }
             }
         }
+        
+        stage('Update AWS Credentials') {
+            steps {
+                script {
+                    echo "Running update_aws_creds.sh to refresh AWS credentials..."
+                    sh './update_aws_creds.sh'
+                    // Optionally, display the updated credentials for verification
+                    sh 'cat ~/.aws/credentials'
+                }
+            }
+        }
 
         stage('Deploy to Kubernetes') {
             steps {
@@ -69,7 +81,7 @@ pipeline {
                         sh "kubectl apply -f app.yml"
                     } catch (Exception e) {
                         echo "Kubernetes deployment failed. Triggering Docker deployment as fallback."
-                        // Fallback to Docker deployment if Kubernetes fails
+                        // Fallback: Deploy container with mounted AWS credentials
                         sh '''
                         # Remove the existing container if it exists to avoid conflict
                         if [ $(docker ps -aq -f name=smart-warranty-calculator) ]; then
@@ -77,8 +89,11 @@ pipeline {
                             docker rm -f smart-warranty-calculator
                         fi
 
-                        echo "Deploying Docker container..."
-                        docker run -d --name smart-warranty-calculator -p 5000:5000 ${DOCKER_IMAGE}:${IMAGE_TAG}
+                        echo "Deploying Docker container with mounted AWS credentials..."
+                        docker run -d --name smart-warranty-calculator -p 5000:5000 \
+                          -v ~/.aws/credentials:/root/.aws/credentials \
+                          -e AWS_REGION=${AWS_REGION} \
+                          ${DOCKER_IMAGE}:${IMAGE_TAG}
                         '''
                     }
                 }
