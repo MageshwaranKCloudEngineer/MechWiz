@@ -1,4 +1,6 @@
 #!/bin/bash
+
+mkdir -p ~/.aws
 # Fetch new temporary credentials for 4 hours (14400 seconds)
 CREDS_JSON=$(aws sts get-session-token --duration-seconds 14400)
 
