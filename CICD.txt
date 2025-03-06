@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    // Schedule the pipeline to run every 3 hours
-    triggers {
-        cron('0 */3 * * *')
-    }
-
     environment {
         GIT_URL                = 'https://github.com/MageshwaranKCloudEngineer/Smart_warranty_project'
         GIT_CREDENTIALS_ID     = 'github-credentials'
@@ -64,7 +59,8 @@ pipeline {
                     sh './update_aws_creds.sh'
                     
                     // Optionally, display the updated credentials for verification
-                    sh 'cat ~/.aws/credentials'
+                    sh 'cat $HOME/.aws/credentials'
+
                 }
             }
         }
@@ -100,7 +96,7 @@ pipeline {
 
                         echo "Deploying Docker container with mounted AWS credentials..."
                         docker run -d --name smart-warranty-calculator -p 5000:5000 \
-                          -v ~/.aws/credentials:/root/.aws/credentials \
+                          -v /home/ubuntu/.aws/credentials:/root/.aws/credentials \
                           -e AWS_REGION=${AWS_REGION} \
                           ${DOCKER_IMAGE}:${IMAGE_TAG}
                         '''
