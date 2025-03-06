@@ -1,6 +1,5 @@
 pipeline {
     agent any
-
     environment {
         GIT_URL                = 'https://github.com/MageshwaranKCloudEngineer/Smart_warranty_project'
         GIT_CREDENTIALS_ID     = 'github-credentials'
@@ -9,6 +8,8 @@ pipeline {
         IMAGE_TAG              = 'latest'
         BRANCH_NAME            = 'master'
         AWS_REGION             = 'us-east-1'
+        // Specify the absolute path for the home directory
+        HOME_DIR               = '/home/ubuntu'
     }
 
     stages {
@@ -58,9 +59,21 @@ pipeline {
                     echo "Running update_aws_creds.sh to refresh AWS credentials..."
                     sh './update_aws_creds.sh'
                     
-                    // Optionally, display the updated credentials for verification
-                    sh 'cat $HOME/.aws/credentials'
+                    // Optionally, display the updated credentials for verification using the absolute path
+                    sh "cat ${HOME_DIR}/.aws/credentials"
+                }
+            }
+        }
+        
+        stage('Verify Mounted Credentials') {
+            steps {
+                script {
+                    echo "Verifying that the AWS credentials file exists on the host..."
+                    sh "cat ${HOME_DIR}/.aws/credentials"
 
+                    echo "Testing mounting of credentials file in a temporary container..."
+                    // This runs an alpine container that mounts the credentials file and prints its contents.
+                    sh 'docker run --rm -v /home/ubuntu/.aws/credentials:/root/.aws/credentials alpine sh -c "cat /root/.aws/credentials"'
                 }
             }
         }
@@ -86,7 +99,7 @@ pipeline {
                         sh "kubectl apply -f app.yml"
                     } catch (Exception e) {
                         echo "Kubernetes deployment failed. Triggering Docker deployment as fallback."
-                        // Fallback: Deploy container with mounted AWS credentials
+                        // Fallback: Deploy container with mounted AWS credentials and environment variable
                         sh '''
                         # Remove the existing container if it exists to avoid conflict
                         if [ $(docker ps -aq -f name=smart-warranty-calculator) ]; then
@@ -98,6 +111,7 @@ pipeline {
                         docker run -d --name smart-warranty-calculator -p 5000:5000 \
                           -v /home/ubuntu/.aws/credentials:/root/.aws/credentials \
                           -e AWS_REGION=${AWS_REGION} \
+                          -e AWS_SHARED_CREDENTIALS_FILE=/root/.aws/credentials \
                           ${DOCKER_IMAGE}:${IMAGE_TAG}
                         '''
                     }
