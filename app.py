@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template
 import uuid
 from datetime import datetime
 import config
+from config import service_centers_table, warranty_table, appointment_table, sns_client
 
 app = Flask(__name__)
 
