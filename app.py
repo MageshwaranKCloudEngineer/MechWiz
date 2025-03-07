@@ -61,7 +61,17 @@ def get_service_center_by_id(id):
 def request_appointment():
     try:
         data = request.json
+        print("Received data:", data)  # Debugging log
+
+        # Validate if required fields are present
+        required_fields = ["service_center_id", "user_name", "user_contact", "appointment_date"]
+        missing_fields = [field for field in required_fields if field not in data]
+
+        if missing_fields:
+            return jsonify({"error": f"Missing fields: {', '.join(missing_fields)}"}), 400
+
         appointment_id = str(uuid.uuid4())
+
         appointment = {
             "appointment_id": appointment_id,
             "service_center_id": data["service_center_id"],
@@ -69,12 +79,21 @@ def request_appointment():
             "user_contact": data["user_contact"],
             "appointment_date": data["appointment_date"]
         }
-        appointment_table = dynamodb.Table("AppointmentTable")
+
+        # Ensure appointment_table is defined (dynamodb.Table instance)
+        global appointment_table
         appointment_table.put_item(Item=appointment)
 
-        user_email = data["user_contact"] 
+        user_email = data["user_contact"]
         subject = "Appointment Confirmation"
-        message = f"Hello Car Company,\n\nAn appointment has been confirmed booked!\nCustomername: {data['user_name']}\nContact email : {data['user_contact']}\nAppointment Date: {data['appointment_date']}\n\nThank you!"
+        message = (
+            f"Hello Car Company,\n\n"
+            f"An appointment has been confirmed!\n"
+            f"Customer Name: {data['user_name']}\n"
+            f"Contact Email: {data['user_contact']}\n"
+            f"Appointment Date: {data['appointment_date']}\n\n"
+            f"Thank you!"
+        )
 
         response = sns_client.publish(
             TopicArn='arn:aws:sns:us-east-1:053158170613:Smart_warrenty_calculator_email', 
@@ -97,6 +116,7 @@ def request_appointment():
     except Exception as e:
         print("Error:", e)
         return jsonify({"error": str(e)}), 500
+
 
 @app.route('/book-appointment')
 def book_appointment():
@@ -136,12 +156,12 @@ def add_warranty():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/upload-warranty-doc", methods=["POST"])
-def upload_warranty_doc():
-    file = request.files["file"]
-    file_name = f"{uuid.uuid4()}_{file.filename}"
-    s3_client.upload_fileobj(file, S3_BUCKET, file_name)
-    return jsonify({"status": "Uploaded", "file_url": f"https://{S3_BUCKET}.s3.amazonaws.com/{file_name}"})
+@app.route("/add-service-center-page", methods=["GET"])
+def add_service_center_page():
+    return render_template("add_service_center.html")
+
+
+
 
 if __name__ == "__main__":
 
