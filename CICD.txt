@@ -116,3 +116,16 @@ pipeline {
         }
     }
 }
+
+
+
+
+
+ubuntu@ip-172-31-16-42:~$ docker run -d --name smart-warranty-calculator -p 5000:5000     -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID"     -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"     -e AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN"     -e AWS_REGION="$AWS_REGION"     magesh506/smart_warrenty_calculator:latest
+docker: Error response from daemon: Conflict. The container name "/smart-warranty-calculator" is already in use by container "113a48ed8ef656fcde63b279a51e974fd9485630548b853a46998ec3f7374d33". You have to remove (or rename) that container to be able to reuse that name.
+See 'docker run --help'.
+ubuntu@ip-172-31-16-42:~$ docker rm smart-warranty-calculator
+smart-warranty-calculator
+ubuntu@ip-172-31-16-42:~$ docker run -d --name smart-warranty-calculator -p 5000:5000     -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID"     -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"     -e AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN"     -e AWS_REGION="$AWS_REGION"     magesh506/smart_warrenty_calculator:latest
+7802bd16edf554324cf2a18d285506f699587997ec3b90699e0e8bffcd7e5bfd
+ubuntu@ip-172-31-16-42:~$
