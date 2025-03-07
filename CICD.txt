@@ -1,5 +1,6 @@
 pipeline {
     agent any
+
     environment {
         GIT_URL                = 'https://github.com/MageshwaranKCloudEngineer/Smart_warranty_project'
         GIT_CREDENTIALS_ID     = 'github-credentials'
@@ -8,7 +9,6 @@ pipeline {
         IMAGE_TAG              = 'latest'
         BRANCH_NAME            = 'master'
         AWS_REGION             = 'us-east-1'
-        // Specify the absolute path for the home directory
         HOME_DIR               = '/home/ubuntu'
     }
 
@@ -17,11 +17,11 @@ pipeline {
             steps {
                 script {
                     echo "Cloning repository from ${GIT_URL}..."
-                    checkout([ 
-                        $class: 'GitSCM', 
-                        branches: [[name: "*/${BRANCH_NAME}"]], 
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: "*/${BRANCH_NAME}"]],
                         userRemoteConfigs: [[
-                            url: GIT_URL, 
+                            url: GIT_URL,
                             credentialsId: GIT_CREDENTIALS_ID
                         ]]
                     ])
@@ -40,40 +40,34 @@ pipeline {
                         passwordVariable: 'DOCKER_PASSWORD'
                     )]) {
                         sh '''
-                          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-                          docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} .
-                          docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
-                          docker logout
+                        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+                        docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} .
+                        docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
+                        docker logout
                         '''
                     }
                 }
             }
         }
-        
-        stage('Update AWS Credentials') {
-            steps {
-                script {
-                    echo "Making update_aws_creds.sh executable..."
-                    sh 'chmod +x update_aws_creds.sh'
-                    
-                    echo "Running update_aws_creds.sh to refresh AWS credentials..."
-                    sh './update_aws_creds.sh'
-                    
-                    // Optionally, display the updated credentials for verification using the absolute path
-                    sh "cat ${HOME_DIR}/.aws/credentials"
-                }
-            }
-        }
-        
-        stage('Verify Mounted Credentials') {
-            steps {
-                script {
-                    echo "Verifying that the AWS credentials file exists on the host..."
-                    sh "cat ${HOME_DIR}/.aws/credentials"
 
-                    echo "Testing mounting of credentials file in a temporary container..."
-                    // This runs an alpine container that mounts the credentials file and prints its contents.
-                    sh 'docker run --rm -v /home/ubuntu/.aws/credentials:/root/.aws/credentials alpine sh -c "cat /root/.aws/credentials"'
+        stage('Remove Old Docker Images') {
+            steps {
+                script {
+                    echo "Removing old Docker images and containers..."
+                    sh '''
+                    # Stop and remove existing container
+                    if [ $(docker ps -aq -f name=smart-warranty-calculator) ]; then
+                        echo "Stopping and removing existing container..."
+                        docker stop smart-warranty-calculator
+                        docker rm smart-warranty-calculator
+                    fi
+
+                    # Remove old images with the same name
+                    if [ $(docker images -q ${DOCKER_IMAGE}:${IMAGE_TAG}) ]; then
+                        echo "Removing old Docker image..."
+                        docker rmi -f ${DOCKER_IMAGE}:${IMAGE_TAG}
+                    fi
+                    '''
                 }
             }
         }
@@ -94,25 +88,27 @@ pipeline {
                     fi
                     kubectl version --client
                     '''
+
                     echo "Deploying Kubernetes manifest from app.yml..."
                     try {
                         sh "kubectl apply -f app.yml"
                     } catch (Exception e) {
                         echo "Kubernetes deployment failed. Triggering Docker deployment as fallback."
-                        // Fallback: Deploy container with mounted AWS credentials and environment variable
+                        
+                        // Fallback: Deploy container without manually passing AWS credentials
                         sh '''
-                        # Remove the existing container if it exists to avoid conflict
                         if [ $(docker ps -aq -f name=smart-warranty-calculator) ]; then
                             echo "Removing existing container..."
                             docker rm -f smart-warranty-calculator
                         fi
 
-                        echo "Deploying Docker container with mounted AWS credentials..."
+                        echo "Deploying Docker container..."
                         docker run -d --name smart-warranty-calculator -p 5000:5000 \
-                          -v /home/ubuntu/.aws/credentials:/root/.aws/credentials \
-                          -e AWS_REGION=${AWS_REGION} \
-                          -e AWS_SHARED_CREDENTIALS_FILE=/root/.aws/credentials \
-                          ${DOCKER_IMAGE}:${IMAGE_TAG}
+                                -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
+                                -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
+                                -e AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN" \
+                                -e AWS_REGION="$AWS_REGION" \
+                            ${DOCKER_IMAGE}:${IMAGE_TAG}
                         '''
                     }
                 }
