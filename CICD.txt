@@ -55,16 +55,12 @@ pipeline {
                 script {
                     echo "Removing old Docker images and containers..."
                     sh '''
-                    # Stop and remove existing container
                     if [ $(docker ps -aq -f name=smart-warranty-calculator) ]; then
-                        echo "Stopping and removing existing container..."
                         docker stop smart-warranty-calculator
                         docker rm smart-warranty-calculator
                     fi
 
-                    # Remove old images with the same name
                     if [ $(docker images -q ${DOCKER_IMAGE}:${IMAGE_TAG}) ]; then
-                        echo "Removing old Docker image..."
                         docker rmi -f ${DOCKER_IMAGE}:${IMAGE_TAG}
                     fi
                     '''
@@ -72,19 +68,15 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Deploy to Kubernetes or Docker') {
             steps {
                 script {
                     echo "Installing kubectl (if not present)..."
                     sh '''
-                    #!/bin/bash
                     if ! command -v kubectl &> /dev/null; then
-                        echo "kubectl not found, installing..."
                         curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
                         chmod +x kubectl
                         sudo mv kubectl /usr/local/bin/
-                    else
-                        echo "kubectl is already installed."
                     fi
                     kubectl version --client
                     '''
@@ -94,20 +86,19 @@ pipeline {
                         sh "kubectl apply -f app.yml"
                     } catch (Exception e) {
                         echo "Kubernetes deployment failed. Triggering Docker deployment as fallback."
-                        
-                        // Fallback: Deploy container without manually passing AWS credentials
+
                         sh '''
                         if [ $(docker ps -aq -f name=smart-warranty-calculator) ]; then
-                            echo "Removing existing container..."
+                            docker stop smart-warranty-calculator
                             docker rm -f smart-warranty-calculator
                         fi
 
                         echo "Deploying Docker container..."
                         docker run -d --name smart-warranty-calculator -p 5000:5000 \
-                                -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
-                                -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
-                                -e AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN" \
-                                -e AWS_REGION="$AWS_REGION" \
+                            -e AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id) \
+                            -e AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key) \
+                            -e AWS_SESSION_TOKEN=$(aws configure get aws_session_token) \
+                            -e AWS_REGION="${AWS_REGION}" \
                             ${DOCKER_IMAGE}:${IMAGE_TAG}
                         '''
                     }
