@@ -36,10 +36,6 @@ sns_client = boto3.client(
     region_name=AWS_REGION
 )
 
-@app.route("/")
-def home():
-    return "AWS Services Connected Successfully!"
-
 if __name__ == "__main__":
 
     app.run(debug=True)
