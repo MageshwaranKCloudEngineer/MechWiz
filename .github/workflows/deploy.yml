@@ -14,7 +14,7 @@ env:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest  # Change to self-hosted if using EC2
+    runs-on: ubuntu-latest  # Change to self-hosted if using EC2 as a runner
 
     steps:
       - name: Checkout Repository
@@ -59,20 +59,34 @@ jobs:
           kubectl apply -f app.yml
         continue-on-error: true  # Ensures Docker fallback runs even if Kubernetes fails
 
-      - name: Deploy to Docker as Fallback
+      - name: Deploy Docker on EC2  # ✅ Deploys Docker container to EC2 instead of GitHub-hosted runner
+        if: ${{ failure() }}
         run: |
-          echo "Kubernetes deployment failed. Deploying Docker container as fallback."
-          docker stop smart-warranty-calculator || true
-          docker rm -f smart-warranty-calculator || true
-          docker pull $DOCKER_IMAGE:$IMAGE_TAG
-          docker run -d --name smart-warranty-calculator -p 5000:5000 $DOCKER_IMAGE:$IMAGE_TAG
+          echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+          ssh -o StrictHostKeyChecking=no -i private_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            echo "Stopping any existing containers..."
+            docker stop smart-warranty-calculator || true
+            docker rm -f smart-warranty-calculator || true
+            echo "Pulling the latest image..."
+            docker pull magesh506/smart_warrenty_calculator:latest
+            echo "Running the container..."
+            docker run -d --name smart-warranty-calculator -p 5000:5000 magesh506/smart_warrenty_calculator:latest
+            echo "Listing running containers..."
+            docker ps -a
+          EOF
 
-      - name: Debug Docker Containers  # ✅ New debug step to check container status
+      - name: Debug Docker Containers on EC2  # ✅ Debugging to check if the container is running
+        if: ${{ failure() }}
         run: |
-          echo "Checking running Docker containers..."
-          docker ps -a
-          echo "Fetching logs from smart-warranty-calculator..."
-          docker logs smart-warranty-calculator || echo "No logs found for smart-warranty-calculator"
+          echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+          ssh -o StrictHostKeyChecking=no -i private_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            echo "Checking running Docker containers..."
+            docker ps -a
+            echo "Fetching logs from smart-warranty-calculator..."
+            docker logs smart-warranty-calculator || echo "No logs found for smart-warranty-calculator"
+          EOF
 
       - name: Logout from Docker Hub
         if: always()
