@@ -14,7 +14,7 @@ env:
 
 jobs:
   build-and-deploy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
@@ -33,7 +33,6 @@ jobs:
         run: |
           docker build -t $DOCKER_IMAGE:$IMAGE_TAG .
           docker push $DOCKER_IMAGE:$IMAGE_TAG
-          docker logout
 
       - name: Remove Old Docker Images
         run: |
@@ -55,15 +54,27 @@ jobs:
           fi
           kubectl version --client
 
+      - name: Configure AWS CLI for EKS (If Using AWS)
+        run: |
+          aws eks --region $AWS_REGION update-kubeconfig --name your-cluster-name
+        continue-on-error: true
+
       - name: Deploy to Kubernetes
         run: |
-          kubectl apply -f app.yml || echo "Kubernetes deployment failed."
+          kubectl apply -f app.yml
+        continue-on-error: true  # This ensures the workflow continues even if Kubernetes fails
 
       - name: Deploy to Docker as Fallback
-        if: failure()
+        if: ${{ failure() }}
         run: |
           echo "Kubernetes deployment failed. Deploying Docker container as fallback."
+          docker stop smart-warranty-calculator || true
+          docker rm -f smart-warranty-calculator || true
           docker run -d --name smart-warranty-calculator -p 5000:5000 $DOCKER_IMAGE:$IMAGE_TAG
+
+      - name: Logout from Docker Hub
+        if: always()
+        run: docker logout
 
       - name: Success Message
         if: success()
