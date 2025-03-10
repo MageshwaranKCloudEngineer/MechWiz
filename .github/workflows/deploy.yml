@@ -34,7 +34,7 @@ jobs:
           docker build -t $DOCKER_IMAGE:$IMAGE_TAG .
           docker push $DOCKER_IMAGE:$IMAGE_TAG
 
-      - name: Remove Old Docker Images
+      - name: Remove Old Docker Containers (if any)
         run: |
           docker stop smart-warranty-calculator || true
           docker rm -f smart-warranty-calculator || true
@@ -59,7 +59,7 @@ jobs:
           kubectl apply -f app.yml
         continue-on-error: true  # Ensures Docker fallback runs even if Kubernetes fails
 
-      - name: Deploy Docker on EC2
+      - name: Deploy Docker on EC2 
         run: |
           echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
           chmod 600 private_key.pem
@@ -69,14 +69,17 @@ jobs:
             docker rm -f smart-warranty-calculator || true
             echo "Pulling the latest image..."
             docker pull magesh506/smart_warrenty_calculator:latest
-            echo "Running the container..."
-            docker run -d --name smart-warranty-calculator -p 5000:5000 magesh506/smart_warrenty_calculator:latest
+            echo "Running the container with AWS credentials..."
+            docker run -d --name smart-warranty-calculator \
+              -p 5000:5000 \
+              -v ~/.aws:/root/.aws \
+              -e AWS_REGION=us-east-1 \
+              magesh506/smart_warrenty_calculator:latest
             echo "Listing running containers..."
             docker ps -a
           EOF
 
-      - name: Debug Docker Containers on EC2  # ✅ Debugging to check if the container is running
-        if: ${{ failure() }}
+      - name: Debug Docker Containers on EC2
         run: |
           echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
           chmod 600 private_key.pem
