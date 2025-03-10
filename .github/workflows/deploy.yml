@@ -60,7 +60,6 @@ jobs:
         continue-on-error: true  # Ensures Docker fallback runs even if Kubernetes fails
 
       - name: Deploy to Docker as Fallback
-        if: ${{ failure() }}
         run: |
           echo "Kubernetes deployment failed. Deploying Docker container as fallback."
           docker stop smart-warranty-calculator || true
