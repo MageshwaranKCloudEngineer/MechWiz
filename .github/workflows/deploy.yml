@@ -31,7 +31,7 @@ jobs:
           fi
 
           # Check if Docker Compose is installed
-          if ! command -v docker-compose &> /dev/null; then
+          if ! command -v docker compose &> /dev/null; then
               echo "❌ Docker Compose is NOT installed!"
               exit 1  # Fail the pipeline if Docker Compose is missing
           else
