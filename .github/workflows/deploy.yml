@@ -34,49 +34,34 @@ jobs:
           docker build -t $DOCKER_IMAGE:$IMAGE_TAG .
           docker push $DOCKER_IMAGE:$IMAGE_TAG
 
-      - name: Remove Old Docker Containers (if any)
+      - name: Install Docker & Docker Compose
         run: |
-          docker stop smart-warranty-calculator || true
-          docker rm -f smart-warranty-calculator || true
-          docker rmi -f $DOCKER_IMAGE:$IMAGE_TAG || true
+          sudo apt-get update
+          sudo apt-get install -y docker.io
+          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose version
 
-      - name: Install Kubectl
-        run: |
-          if ! command -v kubectl &> /dev/null; then
-            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-            chmod +x kubectl
-            sudo mv kubectl /usr/local/bin/
-          fi
-          kubectl version --client
-
-      - name: Configure AWS CLI for EKS (If Using AWS)
-        run: |
-          aws eks --region $AWS_REGION update-kubeconfig --name your-cluster-name
-        continue-on-error: true
-
-      - name: Deploy to Kubernetes
-        run: |
-          kubectl apply -f app.yml
-        continue-on-error: true  # Ensures Docker fallback runs even if Kubernetes fails
-
-      - name: Deploy Docker on EC2 
+      - name: Deploy on EC2 using Docker Swarm
         run: |
           echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
           chmod 600 private_key.pem
           ssh -o StrictHostKeyChecking=no -i private_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            echo "Stopping any existing containers..."
-            docker stop smart-warranty-calculator || true
-            docker rm -f smart-warranty-calculator || true
-            echo "Pulling the latest image..."
-            docker pull magesh506/smart_warrenty_calculator:latest
-            echo "Running the container with AWS credentials..."
-            docker run -d --name smart-warranty-calculator \
-              -p 5000:5000 \
-              -v ~/.aws:/root/.aws \
-              -e AWS_REGION=us-east-1 \
-              magesh506/smart_warrenty_calculator:latest
-            echo "Listing running containers..."
-            docker ps -a
+            echo "Initializing Docker Swarm if not already initialized..."
+            docker swarm init --advertise-addr $(hostname -i) || true
+
+            echo "Checking available nodes..."
+            NODE_COUNT=$(docker node ls | grep -c 'Ready')
+            if [[ $NODE_COUNT -lt 2 ]]; then
+              echo "Error: At least 2 active nodes are required. Current active nodes: $NODE_COUNT"
+              exit 1
+            fi
+
+            echo "Deploying services using Docker Swarm..."
+            docker stack deploy -c docker-compose.yml smart-warranty
+
+            echo "Verifying deployed services..."
+            docker service ls
           EOF
 
       - name: Debug Docker Containers on EC2
@@ -84,10 +69,10 @@ jobs:
           echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
           chmod 600 private_key.pem
           ssh -o StrictHostKeyChecking=no -i private_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            echo "Checking running Docker containers..."
-            docker ps -a
+            echo "Checking running services..."
+            docker service ls
             echo "Fetching logs from smart-warranty-calculator..."
-            docker logs smart-warranty-calculator || echo "No logs found for smart-warranty-calculator"
+            docker service logs smart-warranty_smart-warranty-calculator || echo "No logs found for smart-warranty-calculator"
           EOF
 
       - name: Logout from Docker Hub
