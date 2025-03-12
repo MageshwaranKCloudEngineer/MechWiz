@@ -77,6 +77,7 @@ jobs:
             echo "Pulling the latest image..."
             docker pull magesh506/smart_warrenty_calculator:latest
             echo "Starting services..."
+            cd Smart_warranty_project
             ls
             docker-compose up -d --force-recreate
             echo "Verifying running containers..."
