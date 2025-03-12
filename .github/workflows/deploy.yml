@@ -14,7 +14,7 @@ env:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest  # Change to self-hosted if using EC2 as a runner
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
@@ -34,47 +34,34 @@ jobs:
           docker build -t $DOCKER_IMAGE:$IMAGE_TAG .
           docker push $DOCKER_IMAGE:$IMAGE_TAG
 
-      - name: Remove Old Docker Containers (if any)
-        run: |
-          docker stop smart-warranty-calculator || true
-          docker rm -f smart-warranty-calculator || true
-          docker rmi -f $DOCKER_IMAGE:$IMAGE_TAG || true
-
-      - name: Install Kubectl
-        run: |
-          if ! command -v kubectl &> /dev/null; then
-            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-            chmod +x kubectl
-            sudo mv kubectl /usr/local/bin/
-          fi
-          kubectl version --client
-
-      - name: Configure AWS CLI for EKS (If Using AWS)
-        run: |
-          aws eks --region $AWS_REGION update-kubeconfig --name your-cluster-name
-        continue-on-error: true
-
-      - name: Deploy to Kubernetes
-        run: |
-          kubectl apply -f app.yml
-        continue-on-error: true  # Ensures Docker fallback runs even if Kubernetes fails
-
-      - name: Deploy Docker on EC2 
+      - name: Deploy Docker Compose on EC2
         run: |
           echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
           chmod 600 private_key.pem
           ssh -o StrictHostKeyChecking=no -i private_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            echo "Stopping any existing containers..."
-            docker stop smart-warranty-calculator || true
-            docker rm -f smart-warranty-calculator || true
-            echo "Pulling the latest image..."
-            docker pull magesh506/smart_warrenty_calculator:latest
-            echo "Running the container with AWS credentials..."
-            docker run -d --name smart-warranty-calculator \
-              -p 5000:5000 \
-              -v ~/.aws:/root/.aws \
-              -e AWS_REGION=us-east-1 \
-              magesh506/smart_warrenty_calculator:latest
+            echo "Checking if Docker Compose is installed..."
+            if ! command -v docker-compose &> /dev/null
+            then
+              echo "Installing Docker Compose..."
+              sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+              sudo chmod +x /usr/local/bin/docker-compose
+            fi
+
+            echo "Navigating to deployment directory..."
+            cd ~/Smart_warranty_project || mkdir -p ~/Smart_warranty_project && cd ~/Smart_warranty_project
+            
+            echo "Stopping existing containers..."
+            docker-compose down || true
+
+            echo "Pulling latest changes..."
+            git pull origin master
+
+            echo "Pulling the latest Docker image..."
+            docker pull $DOCKER_IMAGE:$IMAGE_TAG
+
+            echo "Starting services using Docker Compose..."
+            docker-compose up -d --build --scale app=3
+
             echo "Listing running containers..."
             docker ps -a
           EOF
@@ -96,7 +83,7 @@ jobs:
 
       - name: Success Message
         if: success()
-        run: echo "Pipeline completed successfully!"
+        run: echo "Pipeline completed successfully with Docker Compose!"
 
       - name: Failure Message
         if: failure()
