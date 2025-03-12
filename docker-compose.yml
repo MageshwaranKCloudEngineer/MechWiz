@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  smart-warranty-calculator:
+    image: magesh506/smart_warrenty_calculator:latest
+    container_name: smart-warranty-calculator
+    ports:
+      - "5000:5000"
+    restart: always
+    environment:
+      - AWS_REGION=us-east-1
+    volumes:
+      - ~/.aws:/root/.aws
