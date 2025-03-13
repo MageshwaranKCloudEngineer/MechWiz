@@ -3,14 +3,42 @@ import uuid
 from datetime import datetime
 import config
 from config import service_centers_table, warranty_table, appointment_table, sns_client
+from prometheus_flask_exporter import PrometheusMetrics
+from prometheus_client import Counter, Histogram
+from time import time
 
 app = Flask(__name__)
 
+# Initialize Prometheus Metrics
+metrics = PrometheusMetrics(app, path="/metrics")
+
+http_requests_total = Counter(
+    "http_requests_total",
+    "Total HTTP Requests",
+    ["method", "endpoint"]
+)
+
+http_request_duration = Histogram(
+    "http_request_duration_seconds",
+    "HTTP Request Duration",
+    ["method", "endpoint"]
+)
+
+@app.before_request
+def start_timer():
+    request.start_time = time()
+
+@app.after_request
+def log_request(response):
+    if request.endpoint:
+        http_requests_total.labels(method=request.method, endpoint=request.path).inc()
+        request_latency = time() - request.start_time
+        http_request_duration.labels(method=request.method, endpoint=request.path).observe(request_latency)
+    return response
 
 @app.route('/')
 def home():
     return render_template("index.html")
-
 
 @app.route("/check-warranty", methods=["POST"])
 def check_warranty():
@@ -35,8 +63,6 @@ def check_warranty():
 @app.route("/check-warranty", methods=["GET"])
 def check_warranty_page():
     return render_template("warranty_check.html")
-
-
 
 @app.route("/service-centers", methods=["GET"])
 def get_service_centers():
@@ -117,11 +143,9 @@ def request_appointment():
         print("Error:", e)
         return jsonify({"error": str(e)}), 500
 
-
 @app.route('/book-appointment')
 def book_appointment():
     return render_template("appointment_booking.html")
-
 
 @app.route("/add-service-center", methods=["POST"])
 def add_service_center():
@@ -155,14 +179,9 @@ def add_warranty():
         print("Error:", e)
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/add-service-center-page", methods=["GET"])
 def add_service_center_page():
     return render_template("add_service_center.html")
 
-
-
-
 if __name__ == "__main__":
-
     app.run(debug=True, host='0.0.0.0', port=5000)

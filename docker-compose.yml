@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   smart-warranty-calculator:
@@ -11,3 +11,30 @@ services:
       - AWS_REGION=us-east-1
     volumes:
       - ~/.aws:/root/.aws
+    networks:
+      - monitoring  
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    restart: always
+    networks:
+      - monitoring  
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    restart: always
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring  
+
+networks:
+  monitoring:
