@@ -3,3 +3,4 @@ boto3
 gunicorn
 prometheus_flask_exporter
 prometheus-client
+flask-cors

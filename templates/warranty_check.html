@@ -43,11 +43,16 @@
   
   <div class="container text-center">
     <h1 class="mt-4">Check Your Vehicle Warranty</h1>
-    <p class="lead">Enter your product details to check warranty status.</p>
+    <p class="lead">Enter purchase details to check your warranty period.</p>
     
     <form id="warrantyForm" class="mt-4">
       <div class="mb-3">
-        <input type="text" class="form-control" id="product_id" placeholder="Enter Product ID" required>
+        <label for="purchase_date" class="form-label">Purchase Date</label>
+        <input type="date" class="form-control" id="purchase_date" required>
+      </div>
+      <div class="mb-3">
+        <label for="warranty_duration" class="form-label">Warranty Duration (Months)</label>
+        <input type="number" class="form-control" id="warranty_duration" placeholder="Enter warranty duration in months" required>
       </div>
       <button type="submit" class="btn btn-primary">Check Warranty</button>
     </form>
@@ -57,28 +62,40 @@
   <script>
     document.getElementById("warrantyForm").addEventListener("submit", function(event) {
       event.preventDefault();
-      let productId = document.getElementById("product_id").value;
       
-      // Replace the URL below with your friend's actual API endpoint
-      fetch("https://friendapi.com/warranty-check", {
+      let purchaseDate = document.getElementById("purchase_date").value;
+      let warrantyDuration = document.getElementById("warranty_duration").value;
+
+      if (!purchaseDate || !warrantyDuration) {
+        document.getElementById("result").innerHTML = "<strong style='color: red;'>Please fill in all fields.</strong>";
+        return;
+      }
+
+      const apiUrl = "https://2r07smft98.execute-api.us-east-1.amazonaws.com/dev/calculate/";
+      
+      fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ "product_id": productId })
+        body: JSON.stringify({
+          "purchase_date": purchaseDate,
+          "warranty_duration": parseInt(warrantyDuration, 10)
+        })
       })
       .then(response => {
         if (!response.ok) {
-          throw new Error("Network response was not ok: " + response.statusText);
+          throw new Error("HTTP Error " + response.status);
         }
         return response.json();
       })
       .then(data => {
-        document.getElementById("result").innerHTML = `<strong>Status:</strong> ${data.status}, <strong>Warranty Period:</strong> ${data.warranty_period}`;
+        console.log("API Response:", data);
+        document.getElementById("result").innerHTML = `<strong>Warranty Expiry Date:</strong> ${data.warranty_expiry}`;
       })
       .catch(error => {
         console.error("Error:", error);
-        document.getElementById("result").innerHTML = "Error checking warranty.";
+        document.getElementById("result").innerHTML = "<strong style='color: red;'>Error checking warranty.</strong>";
       });
     });
   </script>
