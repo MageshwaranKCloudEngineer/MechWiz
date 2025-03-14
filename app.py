@@ -66,7 +66,7 @@ def get_service_center_by_id(id):
         return jsonify({"error": "Service center not found"}), 404
     return jsonify(item)
 
-@app.route("/app/add-service-center", methods=["POST"])
+@app.route("/api/add-service-center", methods=["POST"])
 def add_service_center():
     try:
         data = request.json
