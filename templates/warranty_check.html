@@ -15,7 +15,7 @@
     }
     .navbar {
       background-color: rgba(0, 123, 255, 1);
-      padding: 30px 0;
+      padding: 20px 0;
     }
     .navbar-brand {
       color: black !important;
@@ -52,7 +52,7 @@
       </div>
       <div class="mb-3">
         <label for="warranty_duration" class="form-label">Warranty Duration (Months)</label>
-        <input type="number" class="form-control" id="warranty_duration" placeholder="Enter warranty duration in months" required>
+        <input type="number" class="form-control" id="warranty_duration" placeholder="Enter warranty duration in months" required min="1">
       </div>
       <button type="submit" class="btn btn-primary">Check Warranty</button>
     </form>
@@ -60,43 +60,45 @@
   </div>
   
   <script>
-    document.getElementById("warrantyForm").addEventListener("submit", function(event) {
+    document.getElementById("warrantyForm").addEventListener("submit", async function(event) {
       event.preventDefault();
       
-      let purchaseDate = document.getElementById("purchase_date").value;
-      let warrantyDuration = document.getElementById("warranty_duration").value;
+      const purchaseDate = document.getElementById("purchase_date").value;
+      const warrantyDuration = document.getElementById("warranty_duration").value;
 
-      if (!purchaseDate || !warrantyDuration) {
-        document.getElementById("result").innerHTML = "<strong style='color: red;'>Please fill in all fields.</strong>";
+      if (!purchaseDate || !warrantyDuration || warrantyDuration <= 0) {
+        document.getElementById("result").innerHTML = "<strong style='color: red;'>Please enter valid details.</strong>";
         return;
       }
 
       const apiUrl = "https://2r07smft98.execute-api.us-east-1.amazonaws.com/dev/calculate/";
-      
-      fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          "purchase_date": purchaseDate,
-          "warranty_duration": parseInt(warrantyDuration, 10)
-        })
-      })
-      .then(response => {
+
+      const requestData = {
+        purchase_date: purchaseDate,
+        warranty_duration: parseInt(warrantyDuration, 10)
+      };
+
+      try {
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestData)
+        });
+
         if (!response.ok) {
-          throw new Error("HTTP Error " + response.status);
+          throw new Error(`HTTP Error ${response.status}`);
         }
-        return response.json();
-      })
-      .then(data => {
+
+        const data = await response.json();
         console.log("API Response:", data);
-        document.getElementById("result").innerHTML = `<strong>Warranty Expiry Date:</strong> ${data.warranty_expiry}`;
-      })
-      .catch(error => {
+
+        document.getElementById("result").innerHTML = 
+          `<strong>Warranty Expiry Date:</strong> ${data.warranty_expiry}`;
+      } catch (error) {
         console.error("Error:", error);
-        document.getElementById("result").innerHTML = "<strong style='color: red;'>Error checking warranty.</strong>";
-      });
+        document.getElementById("result").innerHTML = 
+          "<strong style='color: red;'>Error checking warranty. Please try again later.</strong>";
+      }
     });
   </script>
   

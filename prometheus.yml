@@ -1,5 +1,5 @@
 global:
-  scrape_interval: 3s  # Scrape every 10 seconds
+  scrape_interval: 3s  
 
 scrape_configs:
   - job_name: "smart_warranty_calculator"
