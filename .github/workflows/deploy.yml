@@ -73,6 +73,7 @@ jobs:
             fi
 
             echo "Stopping existing containers..."
+            docker-compose ps -a
             docker-compose down || true
             echo "Pulling the latest image..."
             docker pull magesh506/smart_warrenty_calculator:latest
@@ -80,7 +81,7 @@ jobs:
             cd ~/Smart_warranty_project
             docker-compose up -d --force-recreate
             echo "Verifying running containers..."
-            docker ps -a
+            docker-compose ps -a
           EOF
 
       - name: Debug Docker Containers on EC2
