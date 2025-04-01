@@ -8,6 +8,9 @@ on:
 
 env:
   AWS_REGION: "us-east-1"
+  APPLICATION_NAME: "MechWiz"
+  ENVIRONMENT_NAME: "MechWiz-env"
+  ZIP_NAME: "app-${{ github.run_number }}.zip"
 
 jobs:
   deploy-to-ebs:
@@ -27,20 +30,42 @@ jobs:
       - name: Install AWS Elastic Beanstalk CLI
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y python3-pip
+          sudo apt-get install -y python3-pip zip
           pip3 install awsebcli --upgrade
 
-      - name: Package Application for EBS
+      - name: Clean and Zip App for Deployment
         run: |
-          zip -r app.zip * .[^.]* -x "**node_modules**" "**.git**" "**.github**"
-      
-      - name: Deploy to Elastic Beanstalk
-        run: |
-          aws elasticbeanstalk create-application-version \
-            --application-name "MechWiz" \
-            --version-label "deploy-${{ github.run_number }}" \
-            --source-bundle S3Bucket="elasticbeanstalk-${{ env.AWS_REGION }}-$(aws sts get-caller-identity --query Account --output text)",S3Key="app-${{ github.run_number }}.zip"
+          zip -r ${{ env.ZIP_NAME }} . -x \
+            "**.git**" \
+            "**.github**" \
+            "**__pycache__**" \
+            "**.DS_Store" \
+            "**.env" \
+            "**.venv/**" \
+            "**venv/**" \
+            "***.pyc" \
+            "***.pyo" \
+            "**docker-compose.yml" \
+            "**Dockerfile" \
+            "**README.md" \
+            "**update_aws_creds.sh" \
+            "**CICD.txt"
 
+      - name: Upload ZIP to S3
+        run: |
+          S3_BUCKET="elasticbeanstalk-${{ env.AWS_REGION }}-$(aws sts get-caller-identity --query Account --output text)"
+          aws s3 cp ${{ env.ZIP_NAME }} s3://$S3_BUCKET/${{ env.ZIP_NAME }}
+
+      - name: Create New Elastic Beanstalk Application Version
+        run: |
+          S3_BUCKET="elasticbeanstalk-${{ env.AWS_REGION }}-$(aws sts get-caller-identity --query Account --output text)"
+          aws elasticbeanstalk create-application-version \
+            --application-name ${{ env.APPLICATION_NAME }} \
+            --version-label "deploy-${{ github.run_number }}" \
+            --source-bundle S3Bucket=$S3_BUCKET,S3Key=${{ env.ZIP_NAME }}
+
+      - name: Deploy to Elastic Beanstalk Environment
+        run: |
           aws elasticbeanstalk update-environment \
-            --environment-name "MechWiz-env" \
+            --environment-name ${{ env.ENVIRONMENT_NAME }} \
             --version-label "deploy-${{ github.run_number }}"
