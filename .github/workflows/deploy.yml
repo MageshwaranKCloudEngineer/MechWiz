@@ -1,4 +1,4 @@
-name: Smart Warranty CI/CD
+name: MechWiz CI/CD
 
 on:
   workflow_dispatch:
