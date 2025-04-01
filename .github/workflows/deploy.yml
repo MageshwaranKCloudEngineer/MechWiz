@@ -1,4 +1,4 @@
-name: MechWiz CI/CD
+name: MechWiz_CI/CD
 
 on:
   workflow_dispatch:
