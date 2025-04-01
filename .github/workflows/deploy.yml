@@ -50,6 +50,7 @@ jobs:
             "**Dockerfile" \
             "**README.md" \
             "**update_aws_creds.sh" \
+            "**prometheus.yml"\
             "**CICD.txt"
 
       - name: Upload ZIP to S3
