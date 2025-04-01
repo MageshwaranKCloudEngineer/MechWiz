@@ -8,7 +8,7 @@ on:
 
 env:
   GIT_URL: "https://github.com/MageshwaranKCloudEngineer/MechWiz"
-  DOCKER_IMAGE: "magesh506/mechWiz"
+  DOCKER_IMAGE: "magesh506/mechwiz"
   IMAGE_TAG: "latest"
   AWS_REGION: "us-east-1"
 
