@@ -93,7 +93,7 @@
         console.log("API Response:", data);
 
         document.getElementById("result").innerHTML = 
-          `<strong>Warranty Expiry Date:</strong> ${data.warranty_expiry}`;
+          `<strong>Warranty Expiry Date:</strong> ${data.expiration_date}`;
       } catch (error) {
         console.error("Error:", error);
         document.getElementById("result").innerHTML = 
