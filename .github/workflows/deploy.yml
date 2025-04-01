@@ -7,102 +7,40 @@ on:
       - master
 
 env:
-  GIT_URL: "https://github.com/MageshwaranKCloudEngineer/MechWiz"
-  DOCKER_IMAGE: "magesh506/mechwiz"
-  IMAGE_TAG: "latest"
   AWS_REGION: "us-east-1"
 
 jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest  # Change to self-hosted if using EC2 as a runner
+  deploy-to-ebs:
+    runs-on: ubuntu-latest  
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Check if Docker and Docker Compose are Installed
-        run: |
-          # Check if Docker is installed
-          if ! command -v docker &> /dev/null; then
-              echo "❌ Docker is NOT installed!"
-              exit 1  # Fail the pipeline if Docker is missing
-          else
-              echo "✅ Docker is installed: $(docker --version)"
-          fi
-
-          # Check if Docker Compose is installed
-          if ! command -v docker compose &> /dev/null; then
-              echo "❌ Docker Compose is NOT installed!"
-              exit 1  # Fail the pipeline if Docker Compose is missing
-          else
-              echo "✅ Docker Compose is installed: $(docker-compose --version)"
-          fi
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Build and Push Docker Image
+      - name: Install AWS Elastic Beanstalk CLI
         run: |
-          docker build -t $DOCKER_IMAGE:$IMAGE_TAG .
-          docker push $DOCKER_IMAGE:$IMAGE_TAG
+          sudo apt-get update -y
+          sudo apt-get install -y python3-pip
+          pip3 install awsebcli --upgrade
 
-      - name: Deploy on EC2 using Docker Compose
+      - name: Package Application for EBS
         run: |
-          echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
-          chmod 600 private_key.pem
-          ssh -o StrictHostKeyChecking=no -i private_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            echo "Checking Docker and Docker Compose installation on EC2..."
-            
-            # Check Docker
-            if ! command -v docker &> /dev/null; then
-                echo "❌ Docker is NOT installed on EC2!"
-                exit 1
-            else
-                echo "✅ Docker is installed on EC2: $(docker --version)"
-            fi
-
-            # Check Docker Compose
-            if ! command -v docker-compose &> /dev/null; then
-                echo "❌ Docker Compose is NOT installed on EC2!"
-                exit 1
-            else
-                echo "✅ Docker Compose is installed on EC2: $(docker-compose --version)"
-            fi
-
-            echo "Stopping existing containers..."
-            docker-compose ps -a
-            docker-compose down || true
-            echo "Pulling the latest image..."
-            docker pull magesh506/smart_warrenty_calculator:latest
-            echo "Starting services..."
-            cd ~/Smart_warranty_project
-            docker-compose up -d --force-recreate
-            echo "Verifying running containers..."
-            docker-compose ps -a
-          EOF
-
-      - name: Debug Docker Containers on EC2
+          zip -r app.zip * .[^.]* -x "**node_modules**" "**.git**" "**.github**"
+      
+      - name: Deploy to Elastic Beanstalk
         run: |
-          echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
-          chmod 600 private_key.pem
-          ssh -o StrictHostKeyChecking=no -i private_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            echo "Checking running Docker containers..."
-            docker ps -a
-            echo "Fetching logs from smart-warranty-calculator..."
-            docker logs smart-warranty-calculator || echo "No logs found for smart-warranty-calculator"
-          EOF
+          aws elasticbeanstalk create-application-version \
+            --application-name "MechWiz" \
+            --version-label "deploy-${{ github.run_number }}" \
+            --source-bundle S3Bucket="elasticbeanstalk-${{ env.AWS_REGION }}-$(aws sts get-caller-identity --query Account --output text)",S3Key="app-${{ github.run_number }}.zip"
 
-      - name: Logout from Docker Hub
-        if: always()
-        run: docker logout
-
-      - name: Success Message
-        if: success()
-        run: echo "✅ Pipeline completed successfully!"
-
-      - name: Failure Message
-        if: failure()
-        run: echo "❌ Pipeline failed."
+          aws elasticbeanstalk update-environment \
+            --environment-name "MechWiz-env" \
+            --version-label "deploy-${{ github.run_number }}"
