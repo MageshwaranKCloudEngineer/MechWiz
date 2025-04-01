@@ -7,8 +7,8 @@ on:
       - master
 
 env:
-  GIT_URL: "https://github.com/MageshwaranKCloudEngineer/Smart_warranty_project"
-  DOCKER_IMAGE: "magesh506/smart_warrenty_calculator"
+  GIT_URL: "https://github.com/MageshwaranKCloudEngineer/MechWiz"
+  DOCKER_IMAGE: "magesh506/MechWiz"
   IMAGE_TAG: "latest"
   AWS_REGION: "us-east-1"
 
